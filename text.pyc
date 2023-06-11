@@ -1,0 +1,59 @@
+import nltk
+from nltk.corpus import stopwords
+from nltk.tokenize import sent_tokenize, word_tokenize
+from nltk.cluster.util import cosine_distance
+import numpy as np
+import networkx as nx
+
+def preprocess_text(text):
+    sentences = sent_tokenize(text)
+    word_embeddings = {}
+    stop_words = set(stopwords.words('english'))
+    
+    for i, sentence in enumerate(sentences):
+        sentence = sentence.lower()
+        words = word_tokenize(sentence)
+        words = [word for word in words if word not in stop_words]
+        word_embeddings[i] = words
+    
+    return word_embeddings, sentences
+
+def calculate_sentence_similarity(sent1, sent2):
+    vector1 = np.mean([word_embeddings[word] for word in sent1 if word in word_embeddings], axis=0)
+    vector2 = np.mean([word_embeddings[word] for word in sent2 if word in word_embeddings], axis=0)
+    return cosine_distance(vector1, vector2)
+
+def build_similarity_matrix(sentences):
+    similarity_matrix = np.zeros((len(sentences), len(sentences)))
+    
+    for i in range(len(sentences)):
+        for j in range(len(sentences)):
+            if i != j:
+                similarity_matrix[i][j] = calculate_sentence_similarity(sentences[i], sentences[j])
+    
+    return similarity_matrix
+
+def generate_summary(text, num_sentences=3):
+    word_embeddings, sentences = preprocess_text(text)
+    similarity_matrix = build_similarity_matrix(sentences)
+    nx_graph = nx.from_numpy_array(similarity_matrix)
+    scores = nx.pagerank(nx_graph)
+    ranked_sentences = sorted(((scores[i], s) for i, s in enumerate(sentences)), reverse=True)
+    summary_sentences = [s for _, s in ranked_sentences[:num_sentences]]
+    summary = ' '.join(summary_sentences)
+    
+    return summary
+
+# Example usage:
+text = """
+Lorem ipsum dolor sit amet, consectetur adipiscing elit. Nullam eu semper tortor, et ultrices risus. Mauris congue suscipit sapien, a placerat massa. Sed aliquam massa sed massa tincidunt, id fermentum nunc feugiat. Sed vitae fringilla nisl. Aenean tristique vestibulum feugiat. Ut sit amet dictum orci, vitae rhoncus eros. Fusce eget felis nec libero interdum auctor. Curabitur vitae metus urna. Sed aliquam tempus arcu id ultricies.
+
+Vestibulum malesuada sapien in massa ultrices, eget varius ligula efficitur. Donec a felis eu elit fermentum consequat vitae a quam. Quisque congue, nulla et commodo malesuada, arcu dui congue erat, vitae semper velit ipsum eget tortor. Phasellus tincidunt orci ac libero cursus, a eleifend justo lacinia. Aliquam erat volutpat. Nam auctor tellus ac purus bibendum fringilla. Sed ut metus eget dui vulputate laoreet vel non tortor. Morbi lobortis neque id ipsum eleifend elementum. Vestibulum ut rhoncus turpis. Curabitur placerat felis nec lacus venenatis, a dignissim velit commodo. Etiam iaculis leo id tellus euismod aliquet. Aliquam ultricies ullamcorper nisl, in rhoncus dolor congue ut. Donec eleifend risus et arcu ullamcorper consequat.
+
+Nunc in elit magna. Duis posuere iaculis tellus, sed tempus metus malesuada eu. Morbi dictum augue mauris, et posuere ipsum tincidunt non. Aenean malesuada, nisi vitae eleifend sollicitudin, urna massa ultricies libero, at viverra mi tellus at est. Integer sagittis, arcu non eleifend sagittis, lorem libero vestibulum metus, non bibendum est elit vitae felis. Proin accumsan nisl vel feugiat elementum. Integer id elit et enim bibendum cursus. Sed euismod mi id ligula suscipit, vitae volutpat leo lobortis. Nulla nec pharetra arcu.
+
+Suspendisse potenti. Sed malesuada maximus neque, non efficitur erat consequat nec. In ac erat odio. Pellentesque eu mauris mauris. Suspendisse sollicitudin, ipsum a lobortis semper, odio felis vehicula mauris, sed volutpat ex risus at metus. Sed finibus sem vel leo tincidunt tristique. Pellentesque convallis ex sit amet leo hendrerit, nec viverra lorem dapibus. Sed consequat diam id nisl feugiat lacinia. In vehicula magna a purus iaculis interdum. Integer rhoncus lacinia orci, at lobortis arcu ultrices ut. Sed pharetra erat eu tortor gravida scelerisque. Nullam dapibus ligula nec est accumsan, et aliquam nulla elementum. Nam semper, velit at ullamcorper iaculis, dui ipsum congue est, et convallis ante tellus eget enim.
+"""
+
+summary = generate_summary(text, num_sentences=2)
+print(summary)
